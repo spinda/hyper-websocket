@@ -13,3 +13,12 @@ tokio-io = "0.1"
 version = "0.20"
 default-features = false
 features = ["async"]
+
+[dev-dependencies]
+tokio-core = "0.1"
+tokio-service = "0.1"
+tokio-timer = "0.1"
+
+[patch.crates-io.hyper]
+git = "https://github.com/spinda/hyper"
+rev = "fca6c34fcec5c073052ab5c223369791460f8959"
