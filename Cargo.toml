@@ -10,8 +10,10 @@ tokio-io = "0.1"
 
 [dependencies.hyper]
 git = "https://github.com/spinda/hyper"
-rev = "fca6c34fcec5c073052ab5c223369791460f8959"
+rev = "06497add4b8c83f8c07f83ecfb42e623f5f33039"
 
+# Select the minimum subset of features we need, so we don't force the inclusion
+# of eg. TLS support unnecessarily.
 [dependencies.websocket]
 version = "0.20"
 default-features = false
