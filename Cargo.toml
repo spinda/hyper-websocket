@@ -6,8 +6,11 @@ authors = ["Michael Smith <michael@spinda.net>"]
 [dependencies]
 bytes = "0.4"
 futures = "0.1"
-hyper = "0.11"
 tokio-io = "0.1"
+
+[dependencies.hyper]
+git = "https://github.com/spinda/hyper"
+rev = "fca6c34fcec5c073052ab5c223369791460f8959"
 
 [dependencies.websocket]
 version = "0.20"
@@ -18,7 +21,3 @@ features = ["async"]
 tokio-core = "0.1"
 tokio-service = "0.1"
 tokio-timer = "0.1"
-
-[patch.crates-io.hyper]
-git = "https://github.com/spinda/hyper"
-rev = "fca6c34fcec5c073052ab5c223369791460f8959"
