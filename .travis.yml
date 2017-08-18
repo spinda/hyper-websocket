@@ -1,0 +1,34 @@
+language: rust
+matrix:
+  include:
+    # linux
+    - rust: stable
+      os: linux
+    - rust: beta
+      os: linux
+    - rust: nightly
+      os: linux
+      env: CLIPPY=true
+    # osx
+    - rust: stable
+      os: osx
+    - rust: beta
+      os: osx
+    - rust: nightly
+      os: osx
+
+# Request the "secret" GCE VM environment (faster + more memory)
+sudo: 9000
+
+script:
+  - travis_wait cargo build --verbose
+  - travis_wait cargo test --verbose
+  - travis_wait cargo doc --verbose --no-deps
+  - if [ "$CLIPPY" = true ]; then
+      travis_wait cargo install clippy --verbose &&
+      travis_wait cargo clippy --verbose;
+    fi
+
+notifications:
+  email:
+    on_success: never

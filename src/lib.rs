@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at http://mozilla.org/MPL/2.0/.
+
 extern crate bytes;
 extern crate hyper;
 extern crate tokio_io;
@@ -70,8 +74,8 @@ impl WebSocketHandshake {
             None => return None,
             Some(&header::Connection(ref options)) => {
                 let upgrade = options.iter().any(|option| {
-                    match option {
-                        &header::ConnectionOption::ConnectionHeader(ref value) if value.as_ref()
+                    match *option {
+                        header::ConnectionOption::ConnectionHeader(ref value) if value.as_ref()
                             .eq_ignore_ascii_case("upgrade") => true,
                         _ => false,
                     }
@@ -84,7 +88,7 @@ impl WebSocketHandshake {
 
         Some(WebSocketHandshake {
             key: key.to_owned(),
-            version: version.clone(),
+            version: version,
         })
     }
 
@@ -119,8 +123,7 @@ impl WebSocketHandshake {
                     HttpVersion::Http09 => OldHttpVersion::Http09,
                     HttpVersion::Http10 => OldHttpVersion::Http10,
                     HttpVersion::Http11 => OldHttpVersion::Http11,
-                    HttpVersion::H2 => OldHttpVersion::Http20,
-                    HttpVersion::H2c => OldHttpVersion::Http20,
+                    HttpVersion::H2 | HttpVersion::H2c => OldHttpVersion::Http20,
                     _ => return None,
                 };
                 // Justification: see the comment on OldHttpVersion below.
@@ -250,11 +253,12 @@ impl<T> Future for SendWebSocketResponse<T>
 }
 
 /// This type is structured to match the definition of hyper ^0.10.6's
-/// HttpVersion type. It is used to translate from post-0.11 hyper's HttpVersion
-/// type to the one form the older range which rust-websocket depends on.
-/// Unfortunately Cargo doesn't give us an easy way to just reach in and access
-/// this type from whatever version of hyper is selected for rust-websocket, so
-/// we're left doing this hackily.
+/// `HttpVersion` type. It is used to translate from post-0.11 hyper's
+/// `HttpVersion` type to the one form the older range which rust-websocket
+/// depends on. Unfortunately Cargo doesn't give us an easy way to just reach in
+/// and access this type from whatever version of hyper is selected for
+/// rust-websocket, so we're left doing this hackily.
+#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 enum OldHttpVersion {
     Http09,
     Http10,

@@ -2,6 +2,20 @@
 name = "hyper-websocket"
 version = "0.1.0"
 authors = ["Michael Smith <michael@spinda.net>"]
+license = "MPL-2.0"
+readme = "README.md"
+keywords = ["hyper", "http", "websocket", "web", "socket", "upgrade", "server"]
+repository = "https://github.com/spinda/hyper-websocket"
+homepage = "https://github.com/spinda/hyper-websocket"
+documentation = "https://docs.rs/hyper-websocket/0.1.0"
+description = """
+Upgrade hyper HTTP requests to WebSocket connections (server-side)
+"""
+categories = ["network-programming"]
+
+[badges]
+travis-ci = { repository = "spinda/hyper-websocket" }
+appveyor = { repository = "spinda/hyper-websocket" }
 
 [dependencies]
 bytes = "0.4"

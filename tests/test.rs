@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at http://mozilla.org/MPL/2.0/.
+
 extern crate futures;
 extern crate hyper;
 extern crate tokio_core;
@@ -93,7 +97,7 @@ fn start_server(handle: &Handle) -> SocketAddr {
     let server_handle = handle.clone();
 
     let server_addr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0);
-    let listener = TcpListener::bind(&server_addr, &handle).expect("listener bind error");
+    let listener = TcpListener::bind(&server_addr, handle).expect("listener bind error");
     let server_addr = listener.local_addr().expect("server address retrieval error");
 
     let server_proto = Http::new();
