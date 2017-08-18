@@ -37,10 +37,11 @@ impl WebSocketHandshake {
         WebSocketHandshake::detect_from_parts(req.method(), req.version(), req.headers())
     }
 
-    pub fn detect_from_parts(method: &Method,
-                             version: HttpVersion,
-                             headers: &Headers)
-                             -> Option<Self> {
+    pub fn detect_from_parts(
+        method: &Method,
+        version: HttpVersion,
+        headers: &Headers,
+    ) -> Option<Self> {
         if *method != Method::Get {
             return None;
         }
@@ -63,8 +64,10 @@ impl WebSocketHandshake {
         match headers.get::<header::Upgrade>() {
             None => return None,
             Some(&header::Upgrade(ref protocols)) => {
-                if !protocols.iter()
-                    .any(|protocol| protocol.name == header::ProtocolName::WebSocket) {
+                let contains_websocket = !protocols.iter().any(|protocol| {
+                    protocol.name == header::ProtocolName::WebSocket
+                });
+                if contains_websocket {
                     return None;
                 }
             }
@@ -73,12 +76,10 @@ impl WebSocketHandshake {
         match headers.get::<header::Connection>() {
             None => return None,
             Some(&header::Connection(ref options)) => {
-                let upgrade = options.iter().any(|option| {
-                    match *option {
-                        header::ConnectionOption::ConnectionHeader(ref value) if value.as_ref()
-                            .eq_ignore_ascii_case("upgrade") => true,
-                        _ => false,
-                    }
+                let upgrade = options.iter().any(|option| match *option {
+                    header::ConnectionOption::ConnectionHeader(ref value)
+                        if value.as_ref().eq_ignore_ascii_case("upgrade") => true,
+                    _ => false,
                 });
                 if !upgrade {
                     return None;
@@ -93,19 +94,22 @@ impl WebSocketHandshake {
     }
 
     pub fn accept<T>(self, io: T, read_buf: BytesMut) -> AcceptWebSocketHandshake<T>
-        where T: AsyncRead + AsyncWrite + 'static
+    where
+        T: AsyncRead + AsyncWrite + 'static,
     {
         AcceptWebSocketHandshake(self.build_ws_upgrade(io, read_buf).map(WsUpgrade::accept))
     }
 
     pub fn reject<T>(self, io: T, read_buf: BytesMut) -> RejectWebSocketHandshake<T>
-        where T: AsyncRead + AsyncWrite + 'static
+    where
+        T: AsyncRead + AsyncWrite + 'static,
     {
         RejectWebSocketHandshake(self.build_ws_upgrade(io, read_buf).map(WsUpgrade::reject))
     }
 
     pub fn respond<T>(self, io: T, read_buf: BytesMut, accept: bool) -> SendWebSocketResponse<T>
-        where T: AsyncRead + AsyncWrite + 'static
+    where
+        T: AsyncRead + AsyncWrite + 'static,
     {
         SendWebSocketResponse(if accept {
             Ok(self.accept(io, read_buf))
@@ -115,7 +119,8 @@ impl WebSocketHandshake {
     }
 
     fn build_ws_upgrade<T>(self, io: T, read_buf: BytesMut) -> Option<WsUpgrade<T, BytesMut>>
-        where T: AsyncRead + AsyncWrite
+    where
+        T: AsyncRead + AsyncWrite,
     {
         let mut request: Request = Request {
             version: {
@@ -129,8 +134,12 @@ impl WebSocketHandshake {
                 // Justification: see the comment on OldHttpVersion below.
                 unsafe { mem::transmute(old_version) }
             },
-            subject: ("GET".parse().expect("hyper-websocket: Method parse failed"),
-                      "*".parse().expect("hyper-websocket: RequestUri parse failed")),
+            subject: (
+                "GET".parse().expect("hyper-websocket: Method parse failed"),
+                "*".parse().expect(
+                    "hyper-websocket: RequestUri parse failed",
+                ),
+            ),
             headers: FromIterator::from_iter(iter::empty()),
         };
         request.headers.set_raw("sec-websocket-key", vec![self.key]);
@@ -171,7 +180,8 @@ impl<T> Future for AcceptWebSocketHandshake<T> {
 pub struct RejectWebSocketHandshake<T: AsyncWrite>(Option<Send<Framed<T, HttpServerCodec>>>);
 
 impl<T> fmt::Debug for RejectWebSocketHandshake<T>
-    where T: AsyncWrite
+where
+    T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("RejectWebSocketHandshake")
@@ -181,7 +191,8 @@ impl<T> fmt::Debug for RejectWebSocketHandshake<T>
 }
 
 impl<T> Future for RejectWebSocketHandshake<T>
-    where T: AsyncWrite
+where
+    T: AsyncWrite,
 {
     type Item = T;
     type Error = WebSocketError;
@@ -219,17 +230,18 @@ impl WebSocketResponse {
     }
 
     pub fn send<T>(self, io: T, read_buf: BytesMut) -> SendWebSocketResponse<T>
-        where T: AsyncRead + AsyncWrite + 'static
+    where
+        T: AsyncRead + AsyncWrite + 'static,
     {
         self.handshake.respond(io, read_buf, self.accept)
     }
 }
 
-pub struct SendWebSocketResponse<T: AsyncWrite>(Result<AcceptWebSocketHandshake<T>,
-                                                       RejectWebSocketHandshake<T>>);
+pub struct SendWebSocketResponse<T: AsyncWrite>(Result<AcceptWebSocketHandshake<T>, RejectWebSocketHandshake<T>>);
 
 impl<T> fmt::Debug for SendWebSocketResponse<T>
-    where T: AsyncWrite
+where
+    T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("SendWebSocketResponse")
@@ -239,7 +251,8 @@ impl<T> fmt::Debug for SendWebSocketResponse<T>
 }
 
 impl<T> Future for SendWebSocketResponse<T>
-    where T: AsyncWrite
+where
+    T: AsyncWrite,
 {
     type Item = Result<Client<T>, T>;
     type Error = WebSocketError;
