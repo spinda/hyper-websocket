@@ -40,72 +40,61 @@ impl Service for TestService {
 
     fn call(&self, req: Self::Request) -> Self::Future {
         match WebSocketHandshake::detect(&req) {
-            None => {
-                Box::new(future::ok(UpgradableResponse::Response(
-                    Response::new().with_status(StatusCode::Ok).with_body(
-                        "Hello World",
-                    ),
-                )))
-            }
-            Some(handshake) => {
-                match req.path() {
-                    "/accept" => {
-                        Box::new(future::ok(UpgradableResponse::Upgrade(
-                            WebSocketResponse::accept(handshake),
-                            None,
-                        )))
-                    }
-                    "/reject" => {
-                        Box::new(future::ok(UpgradableResponse::Upgrade(
-                            WebSocketResponse::reject(handshake),
-                            None,
-                        )))
-                    }
-                    "/sleep_then_accept" => {
-                        let timer = Timer::default();
-                        Box::new(
-                            timer
-                                .sleep(Duration::from_millis(500))
-                                .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
-                                .and_then(move |_| {
-                                    Ok(UpgradableResponse::Upgrade(
-                                        WebSocketResponse::accept(handshake),
-                                        None,
-                                    ))
-                                }),
-                        )
-                    }
-                    "/sleep_then_reject" => {
-                        let timer = Timer::default();
-                        Box::new(
-                            timer
-                                .sleep(Duration::from_millis(500))
-                                .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
-                                .and_then(move |_| {
-                                    Ok(UpgradableResponse::Upgrade(
-                                        WebSocketResponse::reject(handshake),
-                                        None,
-                                    ))
-                                }),
-                        )
-                    }
-                    "/sleep" => {
-                        let timer = Timer::default();
-                        Box::new(timer.sleep(Duration::from_millis(500))
+            None => Box::new(future::ok(UpgradableResponse::Response(
+                Response::new().with_status(StatusCode::Ok).with_body("Hello World"),
+            ))),
+            Some(handshake) => match req.path() {
+                "/accept" => Box::new(future::ok(
+                    UpgradableResponse::Upgrade(WebSocketResponse::accept(handshake), None),
+                )),
+                "/reject" => Box::new(future::ok(
+                    UpgradableResponse::Upgrade(WebSocketResponse::reject(handshake), None),
+                )),
+                "/sleep_then_accept" => {
+                    let timer = Timer::default();
+                    Box::new(
+                        timer
+                            .sleep(Duration::from_millis(500))
                             .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
                             .and_then(move |_| {
-                                Box::new(future::ok(UpgradableResponse::Response(Response::new()
-                                    .with_status(StatusCode::Ok)
-                                    .with_body("zzz"))))
-                            }))
-                    }
-                    _ => {
-                        Box::new(future::ok(UpgradableResponse::Response(
-                            Response::new().with_status(StatusCode::NotFound),
-                        )))
-                    }
+                                Ok(UpgradableResponse::Upgrade(
+                                    WebSocketResponse::accept(handshake),
+                                    None,
+                                ))
+                            }),
+                    )
                 }
-            }
+                "/sleep_then_reject" => {
+                    let timer = Timer::default();
+                    Box::new(
+                        timer
+                            .sleep(Duration::from_millis(500))
+                            .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
+                            .and_then(move |_| {
+                                Ok(UpgradableResponse::Upgrade(
+                                    WebSocketResponse::reject(handshake),
+                                    None,
+                                ))
+                            }),
+                    )
+                }
+                "/sleep" => {
+                    let timer = Timer::default();
+                    Box::new(
+                        timer
+                            .sleep(Duration::from_millis(500))
+                            .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
+                            .and_then(move |_| {
+                                Box::new(future::ok(UpgradableResponse::Response(
+                                    Response::new().with_status(StatusCode::Ok).with_body("zzz"),
+                                )))
+                            }),
+                    )
+                }
+                _ => Box::new(future::ok(UpgradableResponse::Response(
+                    Response::new().with_status(StatusCode::NotFound),
+                ))),
+            },
         }
     }
 }
@@ -115,9 +104,7 @@ fn start_server(handle: &Handle) -> SocketAddr {
 
     let server_addr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0);
     let listener = TcpListener::bind(&server_addr, handle).expect("listener bind error");
-    let server_addr = listener.local_addr().expect(
-        "server address retrieval error",
-    );
+    let server_addr = listener.local_addr().expect("server address retrieval error");
 
     let server_proto = Http::new();
     let serve = listener
@@ -149,7 +136,10 @@ fn start_server(handle: &Handle) -> SocketAddr {
                                 .then(|result| {
                                     let (maybe_msg, _websocket) =
                                         result.expect("server websocket receive error");
-                                    assert_eq!(maybe_msg, Some(OwnedMessage::Text("World".into())));
+                                    assert_eq!(
+                                        maybe_msg,
+                                        Some(OwnedMessage::Text("World".into()))
+                                    );
                                     Ok(())
                                 }),
                         )
@@ -173,9 +163,7 @@ fn test_http() {
 
     let client = hyper::Client::new(&handle);
     let test = client
-        .get(format!("http://{}/foo", server_addr).parse().expect(
-            "uri parse error",
-        ))
+        .get(format!("http://{}/foo", server_addr).parse().expect("uri parse error"))
         .then(|result| {
             let res = result.expect("client http error");
             res.body().concat2()
@@ -257,7 +245,6 @@ fn do_test_wrong_status_code(endpt: &'static str) {
 }
 
 #[test]
-#[cfg_attr(rustfmt, rustfmt_skip)]
 fn test_manual_exchange() {
     let mut core = Core::new().expect("core creation error");
     let handle = core.handle();
@@ -271,6 +258,7 @@ fn test_manual_exchange() {
     // Sec-WebSocket-Key: r3MGDiK57a1jWWkCmkiK5g==
     //
     // <-- World
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     let to_server = vec![
         71, 69, 84, 32, 47, 115, 108, 101, 101, 112, 95, 116, 104, 101, 110, 95, 97, 99, 99, 101,
         112, 116, 32, 72, 84, 84, 80, 47, 49, 46, 49, 13, 10, 72, 111, 115, 116, 58, 32, 49, 50,
@@ -289,6 +277,7 @@ fn test_manual_exchange() {
     // Upgrade: websocket
     //
     // --> Hello
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     let from_server = vec![
         72, 84, 84, 80, 47, 49, 46, 49, 32, 49, 48, 49, 32, 83, 119, 105, 116, 99, 104, 105, 110,
         103, 32, 80, 114, 111, 116, 111, 99, 111, 108, 115, 13, 10, 83, 101, 99, 45, 87, 101, 98,

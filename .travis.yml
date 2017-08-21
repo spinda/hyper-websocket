@@ -29,9 +29,8 @@ script:
       travis_wait cargo clippy --verbose;
     fi
   - if [ "$RUSTFMT" = true ]; then
-      travis_wait cargo install rustfmt --verbose &&
-      (find . -type f -name '*.rs' -not -path './target/*' -print0 | xargs -0 -n1 rustfmt --write-mode overwrite --skip-children || true) &&
-      git --no-pager diff --exit-code;
+      travis_wait cargo install rustfmt-nightly --verbose &&
+      cargo fmt -- --write-mode diff;
     fi
 
 notifications:

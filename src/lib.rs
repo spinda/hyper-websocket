@@ -64,9 +64,9 @@ impl WebSocketHandshake {
         match headers.get::<header::Upgrade>() {
             None => return None,
             Some(&header::Upgrade(ref protocols)) => {
-                let contains_websocket = !protocols.iter().any(|protocol| {
-                    protocol.name == header::ProtocolName::WebSocket
-                });
+                let contains_websocket = !protocols
+                    .iter()
+                    .any(|protocol| protocol.name == header::ProtocolName::WebSocket);
                 if contains_websocket {
                     return None;
                 }
@@ -78,7 +78,10 @@ impl WebSocketHandshake {
             Some(&header::Connection(ref options)) => {
                 let upgrade = options.iter().any(|option| match *option {
                     header::ConnectionOption::ConnectionHeader(ref value)
-                        if value.as_ref().eq_ignore_ascii_case("upgrade") => true,
+                        if value.as_ref().eq_ignore_ascii_case("upgrade") =>
+                    {
+                        true
+                    }
                     _ => false,
                 });
                 if !upgrade {
@@ -136,9 +139,7 @@ impl WebSocketHandshake {
             },
             subject: (
                 "GET".parse().expect("hyper-websocket: Method parse failed"),
-                "*".parse().expect(
-                    "hyper-websocket: RequestUri parse failed",
-                ),
+                "*".parse().expect("hyper-websocket: RequestUri parse failed"),
             ),
             headers: FromIterator::from_iter(iter::empty()),
         };
@@ -156,9 +157,7 @@ pub struct AcceptWebSocketHandshake<T>(Option<ClientNew<T>>);
 
 impl<T> fmt::Debug for AcceptWebSocketHandshake<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("AcceptWebSocketHandshake")
-            .field(&self.0.as_ref().map(|_| "..."))
-            .finish()
+        f.debug_tuple("AcceptWebSocketHandshake").field(&self.0.as_ref().map(|_| "...")).finish()
     }
 }
 
@@ -184,9 +183,7 @@ where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("RejectWebSocketHandshake")
-            .field(&self.0.as_ref().map(|_| "..."))
-            .finish()
+        f.debug_tuple("RejectWebSocketHandshake").field(&self.0.as_ref().map(|_| "...")).finish()
     }
 }
 
@@ -237,16 +234,16 @@ impl WebSocketResponse {
     }
 }
 
-pub struct SendWebSocketResponse<T: AsyncWrite>(Result<AcceptWebSocketHandshake<T>, RejectWebSocketHandshake<T>>);
+pub struct SendWebSocketResponse<T: AsyncWrite>(
+    Result<AcceptWebSocketHandshake<T>, RejectWebSocketHandshake<T>>,
+);
 
 impl<T> fmt::Debug for SendWebSocketResponse<T>
 where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("SendWebSocketResponse")
-            .field(&self.0.as_ref().map(|_| "..."))
-            .finish()
+        f.debug_tuple("SendWebSocketResponse").field(&self.0.as_ref().map(|_| "...")).finish()
     }
 }
 
