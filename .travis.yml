@@ -37,6 +37,10 @@ script:
       travis_wait cargo install --git 'https://github.com/rust-lang-nursery/rustfmt' --verbose &&
       cargo fmt -- --write-mode diff;
     fi
+  - if [ "$STRICT" = true ]; then
+      grep -rL 'This Source Code Form is subject to the terms of the Mozilla Public License' src &&
+      grep -rL 'This Source Code Form is subject to the terms of the Mozilla Public License' tests;
+    fi
 
 notifications:
   email:
