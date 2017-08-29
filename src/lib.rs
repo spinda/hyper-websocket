@@ -281,16 +281,16 @@ impl<T> WsStart<T>
 where
     T: AsyncRead + AsyncWrite + 'static,
 {
-    pub fn accept(self, io: T, read_buf: BytesMut) -> AcceptWsHandshake<T> {
-        self.handshake.accept(io, read_buf)
+    pub fn accept(self) -> AcceptWsHandshake<T> {
+        self.handshake.accept(self.io, self.read_buf)
     }
 
-    pub fn reject(self, io: T, read_buf: BytesMut) -> RejectWsHandshake<T> {
-        self.handshake.reject(io, read_buf)
+    pub fn reject(self) -> RejectWsHandshake<T> {
+        self.handshake.reject(self.io, self.read_buf)
     }
 
-    pub fn respond(self, io: T, read_buf: BytesMut, accept: bool) -> SendWsResponse<T> {
-        self.handshake.respond(io, read_buf, accept)
+    pub fn respond(self, accept: bool) -> SendWsResponse<T> {
+        self.handshake.respond(self.io, self.read_buf, accept)
     }
 }
 
