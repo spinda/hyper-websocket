@@ -2,7 +2,10 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at http://mozilla.org/MPL/2.0/.
 
-#![deny(missing_debug_implementations)]
+#![cfg_attr(feature = "strict", deny(warnings))]
+#![cfg_attr(feature = "strict", deny(missing_debug_implementations))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 
 extern crate bytes;
 extern crate hyper;
@@ -297,7 +300,7 @@ where
 /// depends on. Unfortunately Cargo doesn't give us an easy way to just reach in
 /// and access this type from whatever version of hyper is selected for
 /// rust-websocket, so we're left doing this hackily.
-#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
+#[cfg_attr(feature = "clippy", allow(enum_variant_names))]
 enum OldHttpVersion {
     #[allow(dead_code)]
     Http09,

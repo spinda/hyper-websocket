@@ -33,7 +33,15 @@ version = "0.20"
 default-features = false
 features = ["async"]
 
+[dependencies.clippy]
+version = "*"
+optional = true
+
 [dev-dependencies]
 tokio-core = "0.1"
 tokio-service = "0.1"
 tokio-timer = "0.1"
+
+[features]
+default = []
+strict = ["clippy"]
