@@ -28,27 +28,27 @@ use websocket::ClientBuilder;
 use websocket::message::OwnedMessage;
 use websocket::result::WebSocketError;
 
-use hyper_websocket::{WebSocketHandshake, WebSocketResponse};
+use hyper_websocket::{WsHandshake, WsResponse};
 
 struct TestService;
 
 impl Service for TestService {
     type Request = Request;
-    type Response = UpgradableResponse<WebSocketResponse>;
+    type Response = UpgradableResponse<WsResponse>;
     type Error = hyper::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        match WebSocketHandshake::detect(&req) {
+        match WsHandshake::detect(&req) {
             None => Box::new(future::ok(UpgradableResponse::Response(
                 Response::new().with_status(StatusCode::Ok).with_body("Hello World"),
             ))),
             Some(handshake) => match req.path() {
                 "/accept" => Box::new(future::ok(
-                    UpgradableResponse::Upgrade(WebSocketResponse::accept(handshake), None),
+                    UpgradableResponse::Upgrade(WsResponse::accept(handshake), None),
                 )),
                 "/reject" => Box::new(future::ok(
-                    UpgradableResponse::Upgrade(WebSocketResponse::reject(handshake), None),
+                    UpgradableResponse::Upgrade(WsResponse::reject(handshake), None),
                 )),
                 "/sleep_then_accept" => {
                     let timer = Timer::default();
@@ -58,7 +58,7 @@ impl Service for TestService {
                             .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
                             .and_then(move |_| {
                                 Ok(UpgradableResponse::Upgrade(
-                                    WebSocketResponse::accept(handshake),
+                                    WsResponse::accept(handshake),
                                     None,
                                 ))
                             }),
@@ -72,7 +72,7 @@ impl Service for TestService {
                             .map_err(|err| io::Error::new(io::ErrorKind::Other, err).into())
                             .and_then(move |_| {
                                 Ok(UpgradableResponse::Upgrade(
-                                    WebSocketResponse::reject(handshake),
+                                    WsResponse::reject(handshake),
                                     None,
                                 ))
                             }),

@@ -2,6 +2,8 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at http://mozilla.org/MPL/2.0/.
 
+#![deny(missing_debug_implementations)]
+
 extern crate bytes;
 extern crate hyper;
 extern crate tokio_io;
@@ -24,17 +26,24 @@ use tokio_io::codec::Framed;
 use websocket::client::async::{Client, ClientNew};
 use websocket::codec::http::HttpServerCodec;
 use websocket::result::WebSocketError;
-use websocket::server::upgrade::{HyperIntoWsError, Request, WsUpgrade};
+use websocket::server::upgrade::{Request, WsUpgrade};
 
 #[derive(Clone, Debug)]
-pub struct WebSocketHandshake {
+pub struct WsHandshake {
     key: Vec<u8>,
-    version: HttpVersion,
 }
 
-impl WebSocketHandshake {
+impl WsHandshake {
+    pub fn key(&self) -> &[u8] {
+        &self.key
+    }
+
+    pub fn into_key(self) -> Vec<u8> {
+        self.key
+    }
+
     pub fn detect<B>(req: &hyper::Request<B>) -> Option<Self> {
-        WebSocketHandshake::detect_from_parts(req.method(), req.version(), req.headers())
+        WsHandshake::detect_from_parts(req.method(), req.version(), req.headers())
     }
 
     pub fn detect_from_parts(
@@ -90,53 +99,47 @@ impl WebSocketHandshake {
             }
         }
 
-        Some(WebSocketHandshake {
+        Some(WsHandshake {
             key: key.to_owned(),
-            version: version,
         })
     }
 
-    pub fn accept<T>(self, io: T, read_buf: BytesMut) -> AcceptWebSocketHandshake<T>
-    where
-        T: AsyncRead + AsyncWrite + 'static,
-    {
-        AcceptWebSocketHandshake(self.build_ws_upgrade(io, read_buf).map(WsUpgrade::accept))
+    pub fn start<T>(self, io: T, read_buf: BytesMut) -> WsStart<T> {
+        WsStart::new(self, io, read_buf)
     }
 
-    pub fn reject<T>(self, io: T, read_buf: BytesMut) -> RejectWebSocketHandshake<T>
+    pub fn accept<T>(self, io: T, read_buf: BytesMut) -> AcceptWsHandshake<T>
     where
         T: AsyncRead + AsyncWrite + 'static,
     {
-        RejectWebSocketHandshake(self.build_ws_upgrade(io, read_buf).map(WsUpgrade::reject))
+        AcceptWsHandshake(self.build_ws_upgrade(io, read_buf).accept())
     }
 
-    pub fn respond<T>(self, io: T, read_buf: BytesMut, accept: bool) -> SendWebSocketResponse<T>
+    pub fn reject<T>(self, io: T, read_buf: BytesMut) -> RejectWsHandshake<T>
     where
         T: AsyncRead + AsyncWrite + 'static,
     {
-        SendWebSocketResponse(if accept {
+        RejectWsHandshake(self.build_ws_upgrade(io, read_buf).reject())
+    }
+
+    pub fn respond<T>(self, io: T, read_buf: BytesMut, accept: bool) -> SendWsResponse<T>
+    where
+        T: AsyncRead + AsyncWrite + 'static,
+    {
+        SendWsResponse(if accept {
             Ok(self.accept(io, read_buf))
         } else {
             Err(self.reject(io, read_buf))
         })
     }
 
-    fn build_ws_upgrade<T>(self, io: T, read_buf: BytesMut) -> Option<WsUpgrade<T, BytesMut>>
+    fn build_ws_upgrade<T>(self, io: T, read_buf: BytesMut) -> WsUpgrade<T, BytesMut>
     where
         T: AsyncRead + AsyncWrite,
     {
         let mut request: Request = Request {
-            version: {
-                let old_version = match self.version {
-                    HttpVersion::Http09 => OldHttpVersion::Http09,
-                    HttpVersion::Http10 => OldHttpVersion::Http10,
-                    HttpVersion::Http11 => OldHttpVersion::Http11,
-                    HttpVersion::H2 | HttpVersion::H2c => OldHttpVersion::Http20,
-                    _ => return None,
-                };
-                // Justification: see the comment on OldHttpVersion below.
-                unsafe { mem::transmute(old_version) }
-            },
+            // Justification: see the comment on `OldHttpVersion` below.
+            version: unsafe { mem::transmute(OldHttpVersion::Http11) },
             subject: (
                 "GET".parse().expect("hyper-websocket: Method parse failed"),
                 "*".parse().expect("hyper-websocket: RequestUri parse failed"),
@@ -144,50 +147,45 @@ impl WebSocketHandshake {
             headers: FromIterator::from_iter(iter::empty()),
         };
         request.headers.set_raw("sec-websocket-key", vec![self.key]);
-        Some(WsUpgrade {
+        WsUpgrade {
             headers: FromIterator::from_iter(iter::empty()),
             stream: io,
             request: request,
             buffer: read_buf,
-        })
-    }
-}
-
-pub struct AcceptWebSocketHandshake<T>(Option<ClientNew<T>>);
-
-impl<T> fmt::Debug for AcceptWebSocketHandshake<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("AcceptWebSocketHandshake").field(&self.0.as_ref().map(|_| "...")).finish()
-    }
-}
-
-impl<T> Future for AcceptWebSocketHandshake<T> {
-    type Item = Client<T>;
-    type Error = WebSocketError;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0 {
-            None => Err(HyperIntoWsError::UnsupportedHttpVersion.into()),
-            Some(ref mut future) => {
-                let (client, _) = try_ready!(future.poll());
-                Ok(client.into())
-            }
         }
     }
 }
 
-pub struct RejectWebSocketHandshake<T: AsyncWrite>(Option<Send<Framed<T, HttpServerCodec>>>);
+pub struct AcceptWsHandshake<T>(ClientNew<T>);
 
-impl<T> fmt::Debug for RejectWebSocketHandshake<T>
+impl<T> fmt::Debug for AcceptWsHandshake<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("AcceptWsHandshake").field(&"...").finish()
+    }
+}
+
+impl<T> Future for AcceptWsHandshake<T> {
+    type Item = Client<T>;
+    type Error = WebSocketError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let (client, _) = try_ready!(self.0.poll());
+        Ok(client.into())
+    }
+}
+
+pub struct RejectWsHandshake<T: AsyncWrite>(Send<Framed<T, HttpServerCodec>>);
+
+impl<T> fmt::Debug for RejectWsHandshake<T>
 where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("RejectWebSocketHandshake").field(&self.0.as_ref().map(|_| "...")).finish()
+        f.debug_tuple("RejectWsHandshake").field(&"...").finish()
     }
 }
 
-impl<T> Future for RejectWebSocketHandshake<T>
+impl<T> Future for RejectWsHandshake<T>
 where
     T: AsyncWrite,
 {
@@ -195,38 +193,33 @@ where
     type Error = WebSocketError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0 {
-            None => Err(HyperIntoWsError::UnsupportedHttpVersion.into()),
-            Some(ref mut future) => {
-                let framed = try_ready!(future.poll());
-                Ok(framed.into_inner().into())
-            }
-        }
+        let framed = try_ready!(self.0.poll());
+        Ok(framed.into_inner().into())
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct WebSocketResponse {
-    pub handshake: WebSocketHandshake,
+pub struct WsResponse {
+    pub handshake: WsHandshake,
     pub accept: bool,
 }
 
-impl WebSocketResponse {
-    pub fn accept(handshake: WebSocketHandshake) -> Self {
-        WebSocketResponse {
+impl WsResponse {
+    pub fn accept(handshake: WsHandshake) -> Self {
+        WsResponse {
             handshake: handshake,
             accept: true,
         }
     }
 
-    pub fn reject(handshake: WebSocketHandshake) -> Self {
-        WebSocketResponse {
+    pub fn reject(handshake: WsHandshake) -> Self {
+        WsResponse {
             handshake: handshake,
             accept: false,
         }
     }
 
-    pub fn send<T>(self, io: T, read_buf: BytesMut) -> SendWebSocketResponse<T>
+    pub fn send<T>(self, io: T, read_buf: BytesMut) -> SendWsResponse<T>
     where
         T: AsyncRead + AsyncWrite + 'static,
     {
@@ -234,20 +227,18 @@ impl WebSocketResponse {
     }
 }
 
-pub struct SendWebSocketResponse<T: AsyncWrite>(
-    Result<AcceptWebSocketHandshake<T>, RejectWebSocketHandshake<T>>,
-);
+pub struct SendWsResponse<T: AsyncWrite>(Result<AcceptWsHandshake<T>, RejectWsHandshake<T>>);
 
-impl<T> fmt::Debug for SendWebSocketResponse<T>
+impl<T> fmt::Debug for SendWsResponse<T>
 where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("SendWebSocketResponse").field(&self.0.as_ref().map(|_| "...")).finish()
+        f.debug_tuple("SendWsResponse").field(&self.0.as_ref().map(|_| "...")).finish()
     }
 }
 
-impl<T> Future for SendWebSocketResponse<T>
+impl<T> Future for SendWsResponse<T>
 where
     T: AsyncWrite,
 {
@@ -262,6 +253,44 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct WsStart<T> {
+    handshake: WsHandshake,
+    io: T,
+    read_buf: BytesMut,
+}
+
+impl<T> WsStart<T> {
+    pub fn new(handshake: WsHandshake, io: T, read_buf: BytesMut) -> Self {
+        WsStart {
+            handshake: handshake,
+            io: io,
+            read_buf: read_buf,
+        }
+    }
+
+    pub fn into_parts(self) -> (WsHandshake, T, BytesMut) {
+        (self.handshake, self.io, self.read_buf)
+    }
+}
+
+impl<T> WsStart<T>
+where
+    T: AsyncRead + AsyncWrite + 'static,
+{
+    pub fn accept(self, io: T, read_buf: BytesMut) -> AcceptWsHandshake<T> {
+        self.handshake.accept(io, read_buf)
+    }
+
+    pub fn reject(self, io: T, read_buf: BytesMut) -> RejectWsHandshake<T> {
+        self.handshake.reject(io, read_buf)
+    }
+
+    pub fn respond(self, io: T, read_buf: BytesMut, accept: bool) -> SendWsResponse<T> {
+        self.handshake.respond(io, read_buf, accept)
+    }
+}
+
 /// This type is structured to match the definition of hyper ^0.10.6's
 /// `HttpVersion` type. It is used to translate from post-0.11 hyper's
 /// `HttpVersion` type to the one form the older range which rust-websocket
@@ -270,8 +299,11 @@ where
 /// rust-websocket, so we're left doing this hackily.
 #[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 enum OldHttpVersion {
+    #[allow(dead_code)]
     Http09,
+    #[allow(dead_code)]
     Http10,
     Http11,
+    #[allow(dead_code)]
     Http20,
 }
