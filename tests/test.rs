@@ -44,12 +44,12 @@ impl Service for TestService {
                 Response::new().with_status(StatusCode::Ok).with_body("Hello World"),
             ))),
             Some(handshake) => match req.path() {
-                "/accept" => Box::new(future::ok(
-                    UpgradableResponse::Upgrade(WsResponse::accept(handshake), None),
-                )),
-                "/reject" => Box::new(future::ok(
-                    UpgradableResponse::Upgrade(WsResponse::reject(handshake), None),
-                )),
+                "/accept" => Box::new(
+                    future::ok(UpgradableResponse::Upgrade(WsResponse::accept(handshake), None)),
+                ),
+                "/reject" => Box::new(
+                    future::ok(UpgradableResponse::Upgrade(WsResponse::reject(handshake), None)),
+                ),
                 "/sleep_then_accept" => {
                     let timer = Timer::default();
                     Box::new(
