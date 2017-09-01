@@ -41,7 +41,3 @@ script:
       grep -rL 'This Source Code Form is subject to the terms of the Mozilla Public License' src &&
       grep -rL 'This Source Code Form is subject to the terms of the Mozilla Public License' tests;
     fi
-
-notifications:
-  email:
-    on_success: never
