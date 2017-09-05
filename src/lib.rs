@@ -163,7 +163,7 @@ pub struct AcceptWsHandshake<T>(ClientNew<T>);
 
 impl<T> fmt::Debug for AcceptWsHandshake<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("AcceptWsHandshake").field(&"...").finish()
+        f.debug_tuple("AcceptWsHandshake").field(&Omitted).finish()
     }
 }
 
@@ -184,7 +184,7 @@ where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("RejectWsHandshake").field(&"...").finish()
+        f.debug_tuple("RejectWsHandshake").field(&Omitted).finish()
     }
 }
 
@@ -237,7 +237,7 @@ where
     T: AsyncWrite,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("SendWsResponse").field(&self.0.as_ref().map(|_| "...")).finish()
+        f.debug_tuple("SendWsResponse").field(&self.0.as_ref().map(|_| Omitted)).finish()
     }
 }
 
@@ -309,4 +309,12 @@ enum OldHttpVersion {
     Http11,
     #[allow(dead_code)]
     Http20,
+}
+
+struct Omitted;
+
+impl fmt::Debug for Omitted {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "...")
+    }
 }
